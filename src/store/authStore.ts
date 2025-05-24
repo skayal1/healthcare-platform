@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
+import { signIn, signUp, signOut } from '../lib/supabase';
 
 interface AuthState {
   user: User | null;
@@ -21,32 +21,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   signUp: async (email, password, userData) => {
     try {
-      // First, create the auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('User creation failed');
-
-      // Then create the profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authData.user.id,
-          full_name: userData.full_name,
-          role: userData.role,
-        });
-
-      if (profileError) {
-        // If profile creation fails, we should clean up the auth user
-        await supabase.auth.signOut();
-        throw profileError;
-      }
-
-      set({ user: authData.user });
-      
+      const { user } = await signUp(email, password, userData);
+      set({ user });
     } catch (error) {
       if (error instanceof Error) {
         throw new Error(error.message);
@@ -57,14 +33,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   signIn: async (email, password) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) throw error;
-      if (data.user) set({ user: data.user });
-      
+      const { user } = await signIn(email, password);
+      set({ user });
     } catch (error) {
       if (error instanceof Error) {
         throw new Error(error.message);
@@ -75,8 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   signOut: async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await signOut();
       set({ user: null });
     } catch (error) {
       if (error instanceof Error) {
